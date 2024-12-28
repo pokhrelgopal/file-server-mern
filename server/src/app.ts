@@ -1,19 +1,22 @@
 import dotenv from "dotenv";
 import express, { Application } from "express";
-import cookieParser from "cookie-parser";
+// import cookieParser from "cookie-parser";
 import cors from "cors";
 import authRoutes from "./routes/authRoutes";
 import keyRoutes from "./routes/keyRoutes";
 import fileRoutes from "./routes/fileRoutes";
 import prisma from "./prisma";
 import path from "path";
+import bodyParser from "body-parser";
 
 dotenv.config();
 
 const app: Application = express();
 
 app.use(express.json());
-app.use(cookieParser());
+// app.use(cookieParser());
+app.use(bodyParser.json());
+
 app.use(
   cors({
     origin: "http://localhost:3000",
