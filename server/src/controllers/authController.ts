@@ -58,8 +58,10 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     res.cookie("token", token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
-      maxAge: 604800000,
+      sameSite: "lax",
+      path: "/",
+      expires: new Date(Date.now() + 604800000),
+      domain: "localhost",
     });
     res.json({
       message: "Login successful",
@@ -72,10 +74,8 @@ export const login = async (req: Request, res: Response): Promise<void> => {
 };
 
 export const getMe = async (req: Request, res: Response): Promise<void> => {
-  console.log("GetMe function called");
   try {
     let token = req.cookies?.token;
-    console.log("Token: ", token);
     if (!token) {
       res.status(401).json({ error: "Not authenticated" });
       return;

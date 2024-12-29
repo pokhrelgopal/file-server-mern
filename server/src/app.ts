@@ -1,6 +1,6 @@
 import dotenv from "dotenv";
 import express, { Application } from "express";
-// import cookieParser from "cookie-parser";
+import cookieParser from "cookie-parser";
 import cors from "cors";
 import authRoutes from "./routes/authRoutes";
 import keyRoutes from "./routes/keyRoutes";
@@ -14,12 +14,11 @@ dotenv.config();
 const app: Application = express();
 
 app.use(express.json());
-// app.use(cookieParser());
+app.use(cookieParser());
 app.use(bodyParser.json());
-
 app.use(
   cors({
-    origin: "http://localhost:3000",
+    origin: ["http://localhost:3000", "http://localhost:3001"].filter(Boolean),
     credentials: true,
   })
 );
@@ -33,7 +32,7 @@ app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, () => {
-  console.log(`🚀 Server is running on http://127.0.0.1:${PORT}`);
+  console.log(`🚀 Server is running on http://localhost:${PORT}`);
 });
 
 process.on("SIGINT", async () => {

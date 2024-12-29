@@ -1,21 +1,24 @@
 import { configureStore } from "@reduxjs/toolkit";
-import { setupListeners } from "@reduxjs/toolkit/query/react";
-import { userApi } from "./features/userSlice";
-import { fileApi } from "./features/fileSlice";
+import { keyApi } from "./features/keyApi";
+import { fileApi } from "./features/fileApi";
+import keyReducer from "./features/keySlice";
+import { userApi } from "./features/userApi";
 
 export const store = configureStore({
   reducer: {
-    [userApi.reducerPath]: userApi.reducer,
+    [keyApi.reducerPath]: keyApi.reducer,
     [fileApi.reducerPath]: fileApi.reducer,
+    [userApi.reducerPath]: userApi.reducer,
+    key: keyReducer,
   },
   middleware: (getDefaultMiddleware) =>
-    getDefaultMiddleware()
-      .concat(userApi.middleware)
-      .concat(fileApi.middleware),
+    getDefaultMiddleware().concat(
+      keyApi.middleware,
+      fileApi.middleware,
+      userApi.middleware
+    ),
 });
-
-setupListeners(store.dispatch);
 
 export type RootState = ReturnType<typeof store.getState>;
 export type AppDispatch = typeof store.dispatch;
-export type AppStore = typeof store;
+export type Appstore = typeof store;

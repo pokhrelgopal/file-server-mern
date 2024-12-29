@@ -1,5 +1,4 @@
 "use client";
-
 import * as React from "react";
 import {
   createColumnHelper,
@@ -15,35 +14,38 @@ import {
   ArrowUpIcon,
   ArrowDownIcon,
 } from "@radix-ui/react-icons";
+import {
+  useDeleteFileMutation,
+  useGetFilesQuery,
+} from "@/libs/features/fileApi";
+import formatFileSize from "@/utils/format";
+import { toast } from "sonner";
 
 interface File {
-  id: string;
-  name: string;
-  size: number;
-  uploadedAt: Date;
-  url: string;
+  id: number;
+  actualName: string;
+  fileName: string;
+  fileUrl: string;
+  fileSize: number;
+  createdAt: string;
+  onDelete: (id: number) => void;
 }
 
 const columnHelper = createColumnHelper<File>();
 
-const onDelete = (id: string) => {
-  console.log(`Deleting file with id: ${id}`);
-  // Implement actual delete logic here
-};
-
 const columns = [
-  columnHelper.accessor("name", {
+  columnHelper.accessor("actualName", {
     header: "Name",
     cell: (info) => info.getValue(),
   }),
-  columnHelper.accessor("uploadedAt", {
+  columnHelper.accessor("createdAt", {
     header: "Uploaded",
-    cell: (info) => info.getValue().toLocaleDateString(),
+    cell: (info) => new Date(info.getValue()).toLocaleDateString(),
     sortingFn: "datetime",
   }),
-  columnHelper.accessor("size", {
+  columnHelper.accessor("fileSize", {
     header: "Size",
-    cell: (info) => `${info.getValue()} bytes`,
+    cell: (info) => `${formatFileSize(info.getValue())}`,
   }),
   columnHelper.display({
     id: "actions",
@@ -59,7 +61,7 @@ const columns = [
             <DropdownMenu.Item
               className="px-2 py-1.5 outline-none cursor-pointer hover:bg-gray-100 rounded-sm"
               onClick={() =>
-                window.open(info.row.original.url, "_blank", "noopener")
+                window.open(info.row.original.fileUrl, "_blank", "noopener")
               }
             >
               Open
@@ -67,16 +69,13 @@ const columns = [
             <DropdownMenu.Item
               className="px-2 py-1.5 outline-none cursor-pointer hover:bg-gray-100 rounded-sm"
               onClick={() =>
-                navigator.clipboard.writeText(info.row.original.url)
+                navigator.clipboard.writeText(info.row.original.fileUrl)
               }
             >
               Copy Image URL
             </DropdownMenu.Item>
-
             <DropdownMenu.Item
-              onClick={() => {
-                onDelete(info.row.original.id);
-              }}
+              onClick={() => info.row.original.onDelete(info.row.original.id)}
               className="px-2 py-1.5 outline-none cursor-pointer hover:bg-gray-100 rounded-sm text-red-600"
             >
               Delete
@@ -88,65 +87,64 @@ const columns = [
   }),
 ];
 
-const data: File[] = [
-  {
-    id: "8",
-    name: "logo.svg",
-    size: 43520,
-    uploadedAt: new Date("2024-10-17T10:10:00"),
-    url: "uploadthing.com/logo.svg",
-  },
-
-  {
-    id: "12",
-    name: "archive.zip",
-    size: 432120,
-    uploadedAt: new Date("2024-10-21T12:45:00"),
-    url: "uploadthing.com/archive.zip",
-  },
-  {
-    id: "13",
-    name: "config.yml",
-    size: 10240,
-    uploadedAt: new Date("2024-10-22T11:30:00"),
-    url: "uploadthing.com/config.yml",
-  },
-  {
-    id: "14",
-    name: "favicon.ico",
-    size: 1540,
-    uploadedAt: new Date("2024-10-23T09:50:00"),
-    url: "uploadthing.com/favicon.ico",
-  },
-  {
-    id: "15",
-    name: "background.jpg",
-    size: 543210,
-    uploadedAt: new Date("2024-10-24T17:15:00"),
-    url: "uploadthing.com/background.jpg",
-  },
-];
-
 interface FileTableProps {
   searchQuery: string;
 }
 
+const TableSkeleton = () => (
+  <div className="border border-gray-200 rounded-md overflow-hidden">
+    <div className="bg-gray-50 h-12"></div>
+    {[...Array(3)].map((_, index) => (
+      <div key={index} className="flex border-t border-gray-200">
+        <div className="w-1/4 h-12 bg-gray-100 animate-pulse m-2 rounded"></div>
+        <div className="w-1/4 h-12 bg-gray-100 animate-pulse m-2 rounded"></div>
+        <div className="w-1/4 h-12 bg-gray-100 animate-pulse m-2 rounded"></div>
+        <div className="w-1/4 h-12 bg-gray-100 animate-pulse m-2 rounded"></div>
+      </div>
+    ))}
+  </div>
+);
+
 export function FileTable({ searchQuery }: FileTableProps) {
   const [sorting, setSorting] = React.useState<SortingState>([]);
+  const {
+    data: files,
+    error,
+    isLoading,
+    refetch,
+  } = useGetFilesQuery(undefined, { refetchOnFocus: true });
+  const [deleteFile] = useDeleteFileMutation();
 
   const filteredData = React.useMemo(() => {
-    return data.filter((file) =>
-      file.name.toLowerCase().includes(searchQuery.toLowerCase())
+    if (!files) return [];
+    return files.filter((file: File) =>
+      file.actualName.toLowerCase().includes(searchQuery.toLowerCase())
     );
-  }, [searchQuery]);
+  }, [files, searchQuery]);
 
-  const onDelete = (id: string) => {
-    console.log(`Deleting file with id: ${id}`);
-    // Implement actual delete logic here
-  };
+  const onDelete = React.useCallback(
+    async (id: number) => {
+      try {
+        await deleteFile(id.toString()).unwrap();
+        toast.success("File deleted successfully");
+        refetch(); // Refetch the files list after successful deletion
+      } catch (error) {
+        console.error(`Error deleting file with id: ${id}`, error);
+        toast.error("Failed to delete file. Please try again.");
+      }
+    },
+    [deleteFile, refetch]
+  );
+
+  const tableData = React.useMemo(() => {
+    return filteredData.map((file: File) => ({
+      ...file,
+      onDelete,
+    }));
+  }, [filteredData, onDelete]);
 
   const table = useReactTable({
-    data: filteredData,
+    data: tableData,
     columns,
     state: {
       sorting,
@@ -156,8 +154,13 @@ export function FileTable({ searchQuery }: FileTableProps) {
     getSortedRowModel: getSortedRowModel(),
   });
 
+  if (isLoading) return <TableSkeleton />;
+  if (error) return <div className="text-red-500">Error loading files</div>;
+  if (!files || files.length === 0)
+    return <div className="text-gray-500">No files found</div>;
+
   return (
-    <div className="border border-gray-200 rounded-md overflow-hidden">
+    <div className="border border-gray-200 rounded-md overflow-x-auto">
       <table className="w-full">
         <thead className="bg-gray-50">
           {table.getHeaderGroups().map((headerGroup) => (

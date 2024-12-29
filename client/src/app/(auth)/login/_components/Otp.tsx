@@ -1,12 +1,11 @@
 "use client";
 
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import { cn } from "@/utils/tw-merge";
-
 import Image from "next/image";
 import Input from "@/components/ui/input";
 import Button from "@/components/ui/button";
-import { useOtpVerifyMutation } from "@/libs/features/userSlice";
+import { useOtpVerifyMutation } from "@/libs/features/userApi";
 import { useRouter } from "next/navigation";
 
 const Otp = () => {
@@ -47,7 +46,7 @@ const Otp = () => {
     }
   };
 
-  const handleVerify = async () => {
+  const handleVerify = useCallback(async () => {
     if (code.join("").length !== 6) return;
     setIsVerifying(true);
     try {
@@ -66,13 +65,13 @@ const Otp = () => {
     } finally {
       setIsVerifying(false);
     }
-  };
+  }, [code, verifyOtp, router]);
 
   useEffect(() => {
     if (code.every((digit) => digit !== "")) {
       handleVerify();
     }
-  }, [code]);
+  }, [code, handleVerify]);
 
   useEffect(() => {
     focusInput(0);

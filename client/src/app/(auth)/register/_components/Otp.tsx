@@ -1,14 +1,13 @@
 "use client";
 
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import { cn } from "@/utils/tw-merge";
-
 import Image from "next/image";
 import Input from "@/components/ui/input";
 import Button from "@/components/ui/button";
-import { useOtpVerifyMutation } from "@/libs/features/userSlice";
-import { useRouter, useSearchParams } from "next/navigation";
-import { KeySquare } from "iconsax-react";
+import { useOtpVerifyMutation } from "@/libs/features/userApi";
+import { useRouter } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 
 const Otp = () => {
@@ -50,7 +49,7 @@ const Otp = () => {
     }
   };
 
-  const handleVerify = async () => {
+  const handleVerify = useCallback(async () => {
     if (code.join("").length !== 6) return;
     setIsVerifying(true);
     try {
@@ -69,13 +68,13 @@ const Otp = () => {
     } finally {
       setIsVerifying(false);
     }
-  };
+  }, [code, params, verifyOtp, router]);
 
   useEffect(() => {
     if (code.every((digit) => digit !== "")) {
       handleVerify();
     }
-  }, [code]);
+  }, [code, handleVerify]);
 
   useEffect(() => {
     focusInput(0);
@@ -85,7 +84,7 @@ const Otp = () => {
     <div className="mx-auto ">
       <div className="flex flex-col items-center mb-6">
         <div className="w-24 h-12 rounded-full flex items-center justify-center mb-4">
-          <KeySquare className="size-12 stroke-icon-default" />
+          <Image src="/icons/lock.svg" alt="Lock" width={50} height={50} />
         </div>
         <h2 className="text-h4 font-semibold mb-2">
           Two-Factor Authentication

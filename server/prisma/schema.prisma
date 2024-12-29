@@ -21,12 +21,14 @@ model User {
 }
 
 model File {
-    id        Int      @id @default(autoincrement())
-    fileName  String
-    filePath  String
-    fileUrl   String
-    createdAt DateTime @default(now())
-    updatedAt DateTime @updatedAt
-    userId    Int
-    user      User     @relation(fields: [userId], references: [id])
+    id         Int      @id @default(autoincrement())
+    actualName String?
+    fileName   String
+    filePath   String
+    fileUrl    String
+    fileSize   Int
+    createdAt  DateTime @default(now())
+    updatedAt  DateTime @updatedAt
+    userId     Int
+    user       User     @relation(fields: [userId], references: [id])
 }

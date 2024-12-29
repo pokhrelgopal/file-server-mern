@@ -7,20 +7,31 @@ import {
   CloseCircle,
   DocumentCode,
   DocumentUpload,
-  Image,
+  Image as ImageIcon,
   Video,
-  TickCircle,
 } from "iconsax-react";
 import Button from "@/components/ui/button";
 import { toast } from "sonner";
-import { useUploadFileMutation } from "@/libs/features/fileSlice";
+import { useUploadFileMutation } from "@/libs/features/fileApi";
+import Image from "next/image";
 
 interface FilePreview {
   file: File;
   preview: string;
   type: "image" | "video" | "document";
 }
-
+interface SuccessResponse {
+  message: string;
+  fileUrl: string;
+  filePath: string;
+}
+interface ErrorResponse {
+  status: number;
+  data: {
+    error: string;
+    details: string;
+  };
+}
 export function UploadModal() {
   const [isOpen, setIsOpen] = React.useState(false);
   const [selectedFile, setSelectedFile] = React.useState<FilePreview | null>(
@@ -60,12 +71,13 @@ export function UploadModal() {
     try {
       const formData = new FormData();
       formData.append("file", selectedFile.file);
-      await uploadFile(formData).unwrap();
-      toast.success("File uploaded successfully");
+      const res: SuccessResponse = await uploadFile(formData).unwrap();
+      toast.success(res.message || "Upload successful");
       setSelectedFile(null);
       setIsOpen(false);
-    } catch (error) {
-      toast.error("Failed to upload file");
+    } catch (error: unknown) {
+      const err = error as ErrorResponse;
+      toast.error(err.data.details || "Upload failed");
     }
   };
 
@@ -81,7 +93,7 @@ export function UploadModal() {
   const getFileIcon = (type: "image" | "video" | "document") => {
     switch (type) {
       case "image":
-        return <Image className="size-5 stroke-blue-500" />;
+        return <ImageIcon className="size-5 stroke-blue-500" />;
       case "video":
         return <Video className="size-5 stroke-purple-500" />;
       default:
@@ -149,8 +161,10 @@ export function UploadModal() {
 
               {selectedFile.type === "image" && (
                 <div className="relative aspect-video rounded-lg overflow-hidden bg-gray-100">
-                  <img
-                    src={selectedFile.preview}
+                  <Image
+                    height={200}
+                    width={200}
+                    src={(selectedFile.preview as string) || ""}
                     alt="Preview"
                     className="object-contain w-full h-full"
                   />

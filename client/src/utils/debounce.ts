@@ -1,4 +1,4 @@
-export function debounce<T extends (...args: any[]) => void>(
+export function debounce<T extends (...args: unknown[]) => void>(
   func: T,
   delay: number
 ): (...args: Parameters<T>) => void {
@@ -6,6 +6,6 @@ export function debounce<T extends (...args: any[]) => void>(
 
   return (...args: Parameters<T>) => {
     clearTimeout(timeoutId);
-    timeoutId = setTimeout(() => func(...args), delay);
+    timeoutId = setTimeout(() => func(...(args as Parameters<T>)), delay);
   };
 }

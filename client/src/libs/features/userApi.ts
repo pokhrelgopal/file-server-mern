@@ -14,11 +14,24 @@ export interface OtpVerifyResponse {
   status: number;
 }
 
+export interface UserType {
+  id: string;
+  email: string;
+  fullName: string;
+}
+
+export interface LogoutResponse {
+  message: string;
+  status: number;
+}
+
 export const userApi = createApi({
   reducerPath: "userApi",
   baseQuery: fetchBaseQuery({ baseUrl: `${baseApiUrl}api/auth/` }),
   refetchOnFocus: true,
   tagTypes: ["User"],
+  refetchOnMountOrArgChange: true,
+  refetchOnReconnect: true,
   endpoints: (builder) => ({
     signup: builder.mutation<
       SignupResponse,
@@ -52,8 +65,31 @@ export const userApi = createApi({
         body: JSON.stringify({ email, otp }),
       }),
     }),
+    me: builder.query<UserType, void>({
+      query: () => {
+        return {
+          url: "me/",
+          method: "GET",
+          credentials: "include",
+        };
+      },
+      providesTags: ["User"],
+    }),
+    logout: builder.mutation<LogoutResponse, void>({
+      query: () => ({
+        url: "logout/",
+        method: "POST",
+        credentials: "include",
+      }),
+      invalidatesTags: ["User"],
+    }),
   }),
 });
 
-export const { useSignupMutation, useLoginMutation, useOtpVerifyMutation } =
-  userApi;
+export const {
+  useSignupMutation,
+  useLoginMutation,
+  useOtpVerifyMutation,
+  useMeQuery,
+  useLogoutMutation,
+} = userApi;

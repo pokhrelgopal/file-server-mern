@@ -1,13 +1,11 @@
 "use client";
-
 import React from "react";
 import Link from "next/link";
-
 import { motion } from "framer-motion";
 import { ArrowRight } from "iconsax-react";
-import Button from "@/components/ui/button";
+import HeroNav from "./HeroNav";
 
-export default function HeroSection({ user }: { user: any }) {
+export default function HeroSection() {
   const containerVariants = {
     hidden: { opacity: 0, y: 50 },
     visible: {
@@ -44,14 +42,7 @@ export default function HeroSection({ user }: { user: any }) {
 
   return (
     <article className="min-h-screen my-auto bg-gradient-to-r from-zinc-900 to-blue-800">
-      <nav className="max-w-6xl mx-auto flex justify-between items-center px-4 py-6">
-        <h4 className="text-h4 text-red-600">DropIT</h4>
-        <>
-          <Link href="/login">
-            <Button variant={"secondary"}>Sign In</Button>
-          </Link>
-        </>
-      </nav>
+      <HeroNav />
       <motion.main
         className="container mx-auto px-4 pt-40 text-center"
         variants={containerVariants}

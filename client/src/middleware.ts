@@ -4,7 +4,7 @@ import type { NextRequest } from "next/server";
 const protectedRoutes = ["/dashboard"];
 const publicRoutes = ["/login", "/register"];
 
-export function middleware(request: NextRequest, _response: NextResponse) {
+export function middleware(request: NextRequest) {
   const token = request.cookies.get("token")?.value;
   if (
     !token &&

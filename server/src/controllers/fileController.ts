@@ -4,11 +4,28 @@ import prisma from "../prisma";
 import jwt, { JwtPayload } from "jsonwebtoken";
 import fs from "fs";
 
-// Allowed file extensions and max file size
-const ALLOWED_EXTENSIONS = [".jpg", ".jpeg", ".png", ".pdf", ".doc", ".docx"];
-const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
+const ALLOWED_EXTENSIONS = [
+  ".jpg",
+  ".jpeg",
+  ".png",
+  ".gif",
+  ".webp",
+  ".pdf",
+  ".doc",
+  ".docx",
+  ".mp4",
+  ".mov",
+  ".avi",
+  ".mkv",
+  ".webm",
+  ".ppt",
+  ".pptx",
+  ".xls",
+  ".xlsx",
+  ".csv",
+];
+const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100 MB
 
-// Configure multer storage
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     cb(null, "src/uploads");
@@ -19,88 +36,169 @@ const storage = multer.diskStorage({
   },
 });
 
-// Multer instance with file filter and size limit
+class FileUploadError extends Error {
+  constructor(message: string, public code: string) {
+    super(message);
+    this.name = "FileUploadError";
+  }
+}
+
+const fileFilter = (req: any, file: any, cb: any) => {
+  const ext = file.originalname
+    .slice(file.originalname.lastIndexOf("."))
+    .toLowerCase();
+
+  if (!ALLOWED_EXTENSIONS.includes(ext)) {
+    cb(
+      new FileUploadError(
+        `Invalid file type. Allowed types are: ${ALLOWED_EXTENSIONS.join(
+          ", "
+        )}`,
+        "INVALID_FILE_TYPE"
+      ),
+      false
+    );
+    return;
+  }
+  cb(null, true);
+};
+
 const upload = multer({
   storage,
   limits: { fileSize: MAX_FILE_SIZE },
-  fileFilter: (req, file, cb) => {
-    const ext = file.originalname.slice(file.originalname.lastIndexOf("."));
-    if (ALLOWED_EXTENSIONS.includes(ext)) {
-      cb(null, true);
-    } else {
-      cb(new Error("Invalid file type"));
-    }
-  },
+  fileFilter,
 }).single("file");
 
-// File upload controller
 export const uploadFile = async (
   req: Request,
   res: Response
 ): Promise<void> => {
-  console.log("Upload file request received");
+  if (
+    !req.headers["content-type"] ||
+    !req.headers["content-type"].includes("multipart/form-data")
+  ) {
+    res.status(400).json({
+      error: "Invalid Content-Type",
+      details: "Request must have Content-Type: multipart/form-data",
+    });
+    return;
+  }
+
   try {
-    // Check for token in the header
     const received = req.headers.authorization;
     const tokenParts = received?.split(" ");
     if (!tokenParts || tokenParts.length !== 2 || tokenParts[0] !== "Bearer") {
-      res.status(401).json({ error: "Unauthorized" });
+      res.status(401).json({
+        error: "Authentication failed",
+        details: "Valid Bearer token is required",
+      });
       return;
     }
     const token = tokenParts[1];
 
-    // Validate token and find user
     const user = await prisma.user.findUnique({ where: { secretKey: token } });
     if (!user) {
-      res.status(404).json({ error: "User not found" });
+      res.status(404).json({
+        error: "Authentication failed",
+        details: "User not found with provided token",
+      });
       return;
     }
 
-    // Handle file upload
     upload(req, res, async (err) => {
       if (err) {
-        console.error("Multer error:", err);
-        res.status(400).json({ error: err.message || "File upload failed" });
-        return;
+        console.error("File upload error:", err);
+
+        if (err instanceof multer.MulterError) {
+          switch (err.code) {
+            case "LIMIT_FILE_SIZE":
+              return res.status(400).json({
+                error: "File too large",
+                details: `Maximum file size allowed is ${
+                  MAX_FILE_SIZE / (1024 * 1024)
+                }MB`,
+              });
+            case "LIMIT_UNEXPECTED_FILE":
+              return res.status(400).json({
+                error: "Invalid upload",
+                details: "File must be uploaded using 'file' field name",
+              });
+            default:
+              return res.status(400).json({
+                error: "Upload failed",
+                details: err.message,
+              });
+          }
+        }
+
+        if (err instanceof FileUploadError) {
+          return res.status(400).json({
+            error: err.code,
+            details: err.message,
+          });
+        }
+
+        return res.status(400).json({
+          error: "Upload failed",
+          details:
+            err.message || "An unexpected error occurred during file upload",
+        });
       }
 
-      // Check if a file was provided
       if (!req.file) {
-        res.status(400).json({ error: "File is required" });
-        return;
+        return res.status(400).json({
+          error: "Missing file",
+          details:
+            "No file was detected in the request. Please ensure you're sending a file with the key 'file' in the form-data.",
+        });
       }
 
-      // Save file details to the database
-      const filePath = `/uploads/${req.file.filename}`;
-      await prisma.file.create({
-        data: {
-          fileName: req.file.originalname,
+      try {
+        const filePath = `/uploads/${req.file.filename}`;
+        const fileSize = req.file.size;
+        const randomFileName = `${Date.now()}-${req.file.originalname}`;
+        await prisma.file.create({
+          data: {
+            actualName:
+              req.file.originalname.length > 50
+                ? req.file.originalname.slice(0, 50)
+                : req.file.originalname,
+            fileName: randomFileName,
+            filePath,
+            fileSize,
+            fileUrl: `${req.protocol}://${req.get("host")}${filePath}`,
+            userId: user.id,
+          },
+        });
+
+        res.json({
+          message: "File uploaded successfully",
           filePath,
           fileUrl: `${req.protocol}://${req.get("host")}${filePath}`,
-          userId: user.id,
-        },
-      });
-
-      // Respond with file details
-      res.json({
-        message: "File uploaded successfully",
-        filePath,
-        fileUrl: `${req.protocol}://${req.get("host")}${filePath}`,
-      });
+        });
+      } catch (dbError) {
+        console.error("Database error:", dbError);
+        res.status(500).json({
+          error: "Database error",
+          details: "Failed to save file information to database",
+        });
+      }
     });
   } catch (error) {
     console.error("Upload file error:", error);
-    res.status(500).json({ error: "Internal Server Error" });
+    res.status(500).json({
+      error: "Internal server error",
+      details: "An unexpected error occurred while processing your request",
+    });
   }
 };
-
 export const deleteFile = async (
   req: Request,
   res: Response
 ): Promise<void> => {
   try {
-    // Check for token in cookies
     const token = req.cookies?.token;
+
     if (!token) {
       res.status(401).json({ error: "Unauthorized" });
       return;
@@ -110,7 +208,7 @@ export const deleteFile = async (
     const decoded = jwt.verify(
       token,
       process.env.JWT_SECRET as string
-    ) as JwtPayload;
+    ) as jwt.JwtPayload;
     const userId = decoded.userId.toString();
 
     const user = await prisma.user.findUnique({
@@ -121,7 +219,6 @@ export const deleteFile = async (
       res.status(404).json({ error: "User not found" });
       return;
     }
-
     const { id } = req.params;
     const file = await prisma.file.findUnique({ where: { id: Number(id) } });
     if (!file) {
@@ -178,7 +275,14 @@ export const getFiles = async (req: Request, res: Response): Promise<void> => {
     // Fetch user files
     const files = await prisma.file.findMany({
       where: { userId: user.id },
-      select: { id: true, fileName: true, fileUrl: true },
+      select: {
+        id: true,
+        actualName: true,
+        fileName: true,
+        fileUrl: true,
+        fileSize: true,
+        createdAt: true,
+      },
     });
 
     res.json(files);

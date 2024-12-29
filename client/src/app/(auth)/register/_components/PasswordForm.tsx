@@ -1,23 +1,11 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useForm } from "react-hook-form";
-import { z } from "zod";
-import { zodResolver } from "@hookform/resolvers/zod";
 import Input from "@/components/ui/input";
 import Button from "@/components/ui/button";
 import FormErrorMessage from "@/components/ui/form-message";
-import { useSignupMutation } from "@/libs/features/userSlice";
-
-const passwordSchema = z.object({
-  password: z
-    .string()
-    .min(8, "Password must be at least 8 characters")
-    .max(20, "Password must not exceed 20 characters"),
-});
-
-type PasswordFormData = z.infer<typeof passwordSchema>;
+import { useSignupMutation } from "@/libs/features/userApi";
 
 type PasswordFormProps = {
   setShowOtp: React.Dispatch<React.SetStateAction<boolean>>;
@@ -25,27 +13,35 @@ type PasswordFormProps = {
 
 export default function PasswordForm({ setShowOtp }: PasswordFormProps) {
   const router = useRouter();
-  const [loading, setLoading] = React.useState(false);
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
   const searchParams = useSearchParams();
   const email = searchParams.get("email");
 
   const [registerUser] = useSignupMutation();
-  const {
-    register,
-    handleSubmit,
-    formState: { errors },
-  } = useForm<PasswordFormData>({
-    resolver: zodResolver(passwordSchema),
-    defaultValues: {
-      password: "",
-    },
-  });
+
+  const validatePassword = (password: string) => {
+    if (password.length < 8) {
+      return "Password must be at least 8 characters";
+    }
+    if (password.length > 20) {
+      return "Password must not exceed 20 characters";
+    }
+    return "";
+  };
 
   const handleBack = () => {
     router.push(`/register?step=1`);
   };
 
-  const handleFormSubmit = async (data: PasswordFormData) => {
+  const handleFormSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const validationError = validatePassword(password);
+    if (validationError) {
+      setError(validationError);
+      return;
+    }
     if (!email) {
       console.error("Email not found.");
       return;
@@ -54,7 +50,7 @@ export default function PasswordForm({ setShowOtp }: PasswordFormProps) {
       setLoading(true);
       const response = await registerUser({
         email,
-        password: data.password,
+        password,
       }).unwrap();
       if (response.status == 201) {
         setShowOtp(true);
@@ -67,18 +63,17 @@ export default function PasswordForm({ setShowOtp }: PasswordFormProps) {
   };
 
   return (
-    <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-4">
+    <form onSubmit={handleFormSubmit} className="space-y-4">
       <h2 className="text-2xl font-bold">Create a password</h2>
       <div>
         <Input
           type="password"
           placeholder="Password"
-          {...register("password")}
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
           className="w-full"
         />
-        {errors.password && (
-          <FormErrorMessage message={errors.password.message} />
-        )}
+        {error && <FormErrorMessage message={error} />}
       </div>
       <div className="flex justify-between">
         <Button disabled={loading} onClick={handleBack} variant="outline">
